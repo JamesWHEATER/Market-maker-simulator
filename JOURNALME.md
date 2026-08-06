@@ -8,12 +8,12 @@ July --
 
   05/08/2026 -- 
 
-    Today I decided, That's in order for me to continue my project, it would be wise to do some research on previous works about this subject so I learn and limits my potential mistakes. Today I read a work called: " What do we know about the profitability of technical analysis?".
+  Today I decided, That's in order for me to continue my project, it would be wise to do some research on previous works about this subject so I learn and limits my potential mistakes. Today I read a work called: " What do we know about the profitability of technical analysis?".
 
-    In this paper I learned what the skepticism towards technical analysis wa:
+  In this paper I learned what the skepticism towards technical analysis wa:
         1.) 
         
-        Many people accepted the efficient market hypothesis, which is hypothesis that explains that markets are efficient in information. Meaning, That's trying to exploits historic prices of a certain asset was futile since everyone has access to that kind of information.
+      Many people accepted the efficient market hypothesis, which is hypothesis that explains that markets are efficient in information. Meaning, That's trying to exploits historic prices of a certain asset was futile since everyone has access to that kind of information.
 
         I learned that there Are three different types of efficiencies:
 
