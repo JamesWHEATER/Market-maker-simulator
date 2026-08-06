@@ -12,9 +12,9 @@ July --
 
   In this paper I learned what the skepticism towards technical analysis was:
   
-    1.)  Many people accepted the efficient market hypothesis, which is hypothesis that explains that markets are efficient in information. Meaning, That's trying to exploits historic prices of a certain asset was futile since everyone has access to that kind of information.
+  1.)  Many people accepted the efficient market hypothesis, which is hypothesis that explains that markets are efficient in information. Meaning, That's trying to exploits historic prices of a certain asset was futile since everyone has access to that kind of information.
 
-    I learned that there Are three different types of efficiencies:
+  I learned that there Are three different types of efficiencies:
 
       1.) Weak efficiency: Were the information of the assets comes purely from the past price history, this is exploitable
       2.) Semi strong efficiency: where the information comes from all public available data, This includes Price history. This is very hard to exploit, Only data can exploit this type of markets
@@ -26,7 +26,7 @@ I also learnt about a trade technical analysis trading strategy:
 
   I learned about the filter rules, which is a simple form of trading strategy, consisting of identifying trends based on percentage changes. A 1% filter rule, would decide if the price keeps going up, as soon as there is a 1% reversal going down, we would short the asset. The same is true for the bearish situation. The points of this trading strategy, is to try and catch the reversal wave and ride it. One would a tight stop loss, in this case usually of 1%, in case the reversal doesn't happen. Apparently, this trading strategy has the best performance between 1980 and 2000.
 
-    I also learnt that There is a certain criteria to follow to be able to be considered as a viable and trustable research output, I was surprised to see, that many professional research papers didn't follow all of these criteria. Which is Y I will try to follow all of them in my research. The criteria consists of the following:
+  I also learnt that There is a certain criteria to follow to be able to be considered as a viable and trustable research output, I was surprised to see, that many professional research papers didn't follow all of these criteria. Which is Y I will try to follow all of them in my research. The criteria consists of the following:
 
    1.) Transaction costs, where we should take into account not only brokerage fees but also bid and ask spread
    2.) Risk adjustment
