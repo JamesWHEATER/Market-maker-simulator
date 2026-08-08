@@ -65,4 +65,18 @@ I also learnt about a trade technical analysis trading strategy:
   8.) Transaction costs: Of course, having lower transaction costs such as brokerage commissions and bid ask spread will make you more profitable
 
   All of this, gives me the idea of trying to find a market with as many exploitable holes in it as possible in the future. This research paper truly give me some good ideas of what to do on this project, however I still want to read one more paper about something more specific to my projects, specifically about pattern training.
+
+  07/08/2026 --
+
+today I read two papers. the first one, entitled " what makes trading strategies based on chart pattern recognition profitable" by Prodromos Tsinaslanidis and Francisco Guijarro. this paper was very interesting, but it wasn't really relevant to my project. The paper analy different types of chat patterns than the one I want to analyse in my project. I want to analyse commonly used patterns by retail traders, such as head and shoulders and flags. However this paper uses original approach of what the pattern is to be considered They use something called DTW (Dynamic time warping). this trading tool tries to scan a specific pattern in one market and see if it aligns in historical data of different markets, the word warping is used here because the tool stretches and manipulates the charts in order to find similar chart patterns as current asset. in this paper they use this tool coupled with a tool called UCR(University of California Riverside suite) which is a tool that allows the researcher to use DTW on a very large data set and analyse the data very quickly and efficiently.
+
+it was very interesting to see that's the most optimal configurations of this trading strategy were:
+  1.) the of the chart pattern used should be either 15, 20, Or 25. This means that the algorithm should use either the 15, 20, or 25th most recent candles to analyse that whole chart pattern across markets
+  2.) the number of references should be either 10, 15, or 20 . This is tell the algorithm How many similar chart patterns to the current markets it should find across different markets
+  3.) as a general rule, the stop loss should be under or equal to the take profit. This will make the winner trades appear more strongly as the end result
+  4.) finally the consensus, which is a percentage that measures how many actual trades we go in out of the number of all possible trades. This number should be between 0.5% and 7.5%. so this consensus basically is measured about how we tell the programme to act. So if there are 10 reference charts, we should tell the algorithm to only enter the position For example a long position if or nine out of those 10 references are also bullish when this chart pattern comes up.
+
+  in this paper, the number of positive trading systems According to these measures Where was 92.5% of all trading systems. The average return after transactions was 0.13% a day, which is equal to an annual expected return of 60%, which is really good.
+
+  this research paper, Did all of those experiments on New York Stock Exchange stocks, which as we know thanks to the lost research paper, are the most efficient markets available. so even though in this markets technical traders are at a disadvantage, The expected annual return is still 60%, which is very interesting. In the future I would like to use this type of trading technique on a less efficient market such as futures or exchange rates markets, Using best configuration such as high take profits and query lengths plus lower number of references and lower stop losses. Since lower number of references will make the tools only selected the most appropriate similar charts.
         
