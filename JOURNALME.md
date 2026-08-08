@@ -79,4 +79,33 @@ it was very interesting to see that's the most optimal configurations of this tr
   in this paper, the number of positive trading systems According to these measures Where was 92.5% of all trading systems. The average return after transactions was 0.13% a day, which is equal to an annual expected return of 60%, which is really good.
 
   this research paper, Did all of those experiments on New York Stock Exchange stocks, which as we know thanks to the lost research paper, are the most efficient markets available. so even though in this markets technical traders are at a disadvantage, The expected annual return is still 60%, which is very interesting. In the future I would like to use this type of trading technique on a less efficient market such as futures or exchange rates markets, Using best configuration such as high take profits and query lengths plus lower number of references and lower stop losses. Since lower number of references will make the tools only selected the most appropriate similar charts.
-        
+
+  08/08/2026 --
+    I have started to read a new paper entitled:" foundations of technical analysis; Computational algorithms; Statistical inference, an empirical implementation" by ANDREW W. LO, HARRY MAMAYSKY, AND JIANG WANG.
+
+    it is a very interesting paper that is very aligned with my project, from what I understood so far, It is teaching me how help an algorithm mathematically recognise different trading patterns.
+
+    I have only read the first parts for now, which sets the base for the mathematical foundations and techniques in the paper.
+
+    First, I learned what's in Monte Carlo simulation is. It is a way to analyse if a certain given result comes from a randomness or if it is genuinely related to a problem. and for more I understood, the goal is to generate a tonne of fake data under a random model, and then compare it to real results to see if the random data was actually predictive and works. This is very similar to what I'm doing, So maybe I will switch my simulation to a Monte Carlo simulation. by law of large numbers, the prediction of a Montecolor simulation should approximate the true probability, if the data set is large enough.
+
+    in the paper, We assume that prices follow the following equation: Pt =m(Xt) + DELTAt, where Pt is the assets price at a given time t and,  m(Xt) is the true nonlinear function of price and DELTAt is noise at time t.
+
+    secondly, in order to approximate the true nonlinear function m(x), we use something called a smoothing estimator. the goal, is to get the weighted average between the price of an asset at a given time T and the weight. where prices are multiplied by their weight, their weights being the density of the price in our given sample.
+
+    furthermore, in order to get this density function, we use something called a kernel regression. A kernel regression is a technique used to approximate true population density from small data samples. The idea is, each data in our sample is gonna have its own kernel function, in our case and the most popular case, The kernel function would be the standard distribution of the data point. then, we use each data points kernel function to try to approximate the density of nearby possible data points, we would give more weight to data points that are closer to the specific data point that we're trying to calculate. For example, If we are trying to find out what is the approximate density of students getting the score of 50 out of 100 on the test, the kernel functions of the scores 49 and 51 would have much more weight than the kernel functions of scores one and 99.
+
+    another thing to consider, is the bandwidth of each of these kernel function. If the bandwidth it's too large, this would give us an over smoothed density curve that would suggest a uniform distribution, which would be useless for our continuing calculations. Similarly, a too little bandwidth, would give us a hyper narrow under smooth curve, That would be too sensitive to our data points in our actual data sets and would be useless. therefore, it is important for us to get the proper bandwidth to get that sweet spot.
+
+    the kernel density function is given by the following: <img width="586" height="129" alt="image" src="https://github.com/user-attachments/assets/0f0e664e-eabd-438b-98bf-f4b631bac9e9" />
+where H is the variable that controls the bandwidth of the kernel function. The Bigger the H, the points that were previously far away from our price are now closer to us. Which means that they will have a higher weight that takes into consideration in our kernel function. Which also means that they will have a higher density. And therefore a higher H will produce a wider bandwidth.
+
+  now that we can have density function, we can now provide with an equation that approximates the nonlinear price of our asset at any point:<img width="849" height="858" alt="image" src="https://github.com/user-attachments/assets/8422425a-74f4-452a-ac40-da16674a6bd0" />
+
+  finally call mom It is also crucial to be able to select the optimal H to set the optimal bandwidth of the kernel functions. To do this we use something called a cross validation where H is chosen to minimise the following equation: <img width="645" height="203" alt="image" src="https://github.com/user-attachments/assets/bdfc9227-5d24-447c-9dbb-6b8262b78398" />. basically, the idea is to approximate the nonlinear function M without using a specific data point and then tested the residual squares, which is basically the average of the squared difference between the true asset price- The estimated nonlinear asset price.
+  interestingly, the optimal H generating by this technique over smoothed the kernel function when it came to the technical analysis scenario in the paper. As a solution The paper continued to use a new optimal solution which was 30% of the initial calculated H. This is not the most rigorous way to find the optimal, and leads us to question why this method didn't work for our project.
+
+
+
+
+    
