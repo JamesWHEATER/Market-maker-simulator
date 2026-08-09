@@ -80,7 +80,7 @@ it was very interesting to see that's the most optimal configurations of this tr
 
   this research paper, Did all of those experiments on New York Stock Exchange stocks, which as we know thanks to the lost research paper, are the most efficient markets available. so even though in this markets technical traders are at a disadvantage, The expected annual return is still 60%, which is very interesting. In the future I would like to use this type of trading technique on a less efficient market such as futures or exchange rates markets, Using best configuration such as high take profits and query lengths plus lower number of references and lower stop losses. Since lower number of references will make the tools only selected the most appropriate similar charts.
 
-  08/08/2026 --
+  08/08/2026 + 09/08/2026 --
     I have started to read a new paper entitled:" foundations of technical analysis; Computational algorithms; Statistical inference, an empirical implementation" by ANDREW W. LO, HARRY MAMAYSKY, AND JIANG WANG.
 
     it is a very interesting paper that is very aligned with my project, from what I understood so far, It is teaching me how help an algorithm mathematically recognise different trading patterns.
@@ -104,6 +104,21 @@ where H is the variable that controls the bandwidth of the kernel function. The 
 
   finally call mom It is also crucial to be able to select the optimal H to set the optimal bandwidth of the kernel functions. To do this we use something called a cross validation where H is chosen to minimise the following equation: <img width="645" height="203" alt="image" src="https://github.com/user-attachments/assets/bdfc9227-5d24-447c-9dbb-6b8262b78398" />. basically, the idea is to approximate the nonlinear function M without using a specific data point and then tested the residual squares, which is basically the average of the squared difference between the true asset price- The estimated nonlinear asset price.
   interestingly, the optimal H generating by this technique over smoothed the kernel function when it came to the technical analysis scenario in the paper. As a solution The paper continued to use a new optimal solution which was 30% of the initial calculated H. This is not the most rigorous way to find the optimal, and leads us to question why this method didn't work for our project.
+
+  now that we got the math out the way, our next step is to construct the detection of technical patterns algorithm. For this the paper suggests three steps:
+    1.) define each technical pattern in terms of geometric properties, for example, local extrema (maximum and minima)
+    2.) construct a kernel estimator M of a given time series of prices so that its extra mark can be determined numerically
+    3.) analyse M for occurrences of each technical pattern
+
+so an example of mathematically defining chart patterns, for a head and shoulders pattern, You would E1 E3 E5 as local maxima points, and E-2 with E4 local minima. Then you will say that E3 has to be bigger than E1 And that E3 also has to be bigger than E5. so here E3 would be your head, E1 and E5 would be your shoulders. Then you should say that E1 and E5 are within 1.5% of their average, because the shoulders need to be aligned. E-2 would be the beginning or end of the shoulders since they would represent the local minima, they too have to be within 15 percent of their average.
+
+  then we have to use a window, to help the algorithm focus on the most recent pattern making, and not take all the data into consideration in one go, because if it does that there will be too much noise and impossible for it to find out if the patterns have predictable abilities. We usually do 35 day window, and then the paper added a an extra three days as a kind of buffer for the programme to be able to catch and finalise its patterns.
+
+  in the paper to find the local extremes, we would compare the signs of the derivative of M at the time T and T plus 1. so if they have different signs of course we would have passed an extrema. Furthermore, If we we find a time that has a derivative of 0, We still need analyse if it is an extrema, which is why we introduce a new variable and calculate the sine of the derivative of of T1 prove the sign of S which is just the next time frame after T that has the derivative of M not equal to zero.
+
+  finally, After getting the pattern results, we should use goodness of fits test or another test to if the patterns truly have their own predictability ability. So the idea, is to compare the distribution of the conditional probability which is when we have used the patterns with the unconditional probability which is just normal unconditional Probability of the market. And if it is different, then patterns have their own predictability ability. The paper also wanted to to assume that volume also has its own predictability ability so it also tested the volume.
+
+  as a conclusion of the paper, I found that's seven out of 10 of the patterns that we tested had a different distribution to the normal unconditional Distribution. All of them gave a very light statistical edge of the market. However, it didn't analyse if this statistical edge was exploitable. I might be able to prove if it is exploitable with my own project. And as a hunch, This very light statistical edge is probably not exploitable after transaction costs, since these types of minute advantages are often illuminated after transaction costs are taken into consideration.
 
 
 
