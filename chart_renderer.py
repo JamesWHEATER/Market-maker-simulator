@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +63,7 @@ def write_interactive_candlestick_html(
     candles: list[PriceCandle],
     output_path: Path,
     visible_candles: int = 160,
+    title: str = "Market Candlestick Chart",
 ) -> None:
     if not candles:
         return
@@ -87,7 +89,7 @@ def write_interactive_candlestick_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Random Market Candlestick Chart</title>
+<title>__CHART_TITLE__</title>
 <style>
 :root {
   color-scheme: light;
@@ -311,7 +313,7 @@ canvas.dragging {
 <body>
 <main class="app">
   <header class="topbar">
-    <h1>Random Market Candlestick Chart</h1>
+    <h1>__CHART_TITLE__</h1>
     <div class="meta" id="chartMeta"></div>
   </header>
   <section class="controls" aria-label="Chart controls">
@@ -842,8 +844,10 @@ resizeCanvas();
 </body>
 </html>
 """
-    html = (
+    safe_title = html.escape(str(title), quote=True)
+    rendered_html = (
         template.replace("__CANDLES_JSON__", candles_json)
         .replace("__VISIBLE_CANDLES__", str(visible_candles))
+        .replace("__CHART_TITLE__", safe_title)
     )
-    output_path.write_text(html, encoding="utf-8")
+    output_path.write_text(rendered_html, encoding="utf-8")

@@ -1,0 +1,107 @@
+{
+  "active_worlds": [
+    "random"
+  ],
+  "adaptive": {
+    "exploration_weight": 0.05,
+    "learning_rate": 0.16,
+    "return_scale": 0.0015,
+    "score_decay": 0.965,
+    "size_boost": 0.7,
+    "temperature": 0.35
+  },
+  "base_fundamental_drift": 0.0,
+  "base_spread": 0.04,
+  "decision_noise": 0.75,
+  "decision_signal_strength": 2.1,
+  "emotional": {
+    "decay": 0.9,
+    "drawdown_scale": 0.05,
+    "drawdown_sensitivity": 0.035,
+    "fear_sensitivity": 0.25,
+    "fomo_sensitivity": 0.22,
+    "greed_sensitivity": 0.12,
+    "return_scale": 0.0015,
+    "signal_scale": 1.2,
+    "size_boost": 1.25
+  },
+  "fair_value_step_vol": 0.03,
+  "fundamental_anchor_strength": 0.025,
+  "information": {
+    "event_decay": 0.93,
+    "event_probability": 0.0025,
+    "event_size_boost": 1.5,
+    "informed_fraction": 0.12,
+    "min_shock_fraction": 0.004,
+    "public_diffusion_rate": 0.035,
+    "shock_std_fraction": 0.018,
+    "signal_gap_fraction": 0.01
+  },
+  "initial_fair_value": 100.0,
+  "inventory_skew": 0.002,
+  "inventory_skew_cap_fraction": 0.025,
+  "inventory_spread_sensitivity": 0.0002,
+  "liquidity": {
+    "log_liquidity_vol": 0.08,
+    "max_liquidity": 3.0,
+    "min_liquidity": 0.3,
+    "persistence": 0.965,
+    "round_number_interval": 0.0,
+    "round_proximity_fraction": 0.0018,
+    "stop_cascade_size_boost": 1.8,
+    "stop_cascade_strength": 0.9,
+    "support_resistance_strength": 0.45
+  },
+  "max_order_size": 10,
+  "max_order_size_multiplier": 5.0,
+  "max_single_step_mid_move_fraction": 0.035,
+  "mean_reversion": {
+    "deadband_fraction": 0.0005,
+    "deviation_scale_fraction": 0.006,
+    "size_boost": 0.7
+  },
+  "microstructure_noise_fraction": 2.5e-05,
+  "min_order_size": 1,
+  "min_tick": 0.01,
+  "momentum": {
+    "deadband": 0.0002,
+    "lookback": 12,
+    "return_scale": 0.006,
+    "size_boost": 0.85
+  },
+  "order_impact_fraction": 0.00032,
+  "random_world": {
+    "signal_strength": 1.0
+  },
+  "regime": {
+    "euphoria_vol_multiplier": 1.8,
+    "high_vol_liquidity_multiplier": 0.7,
+    "high_vol_multiplier": 3.0,
+    "panic_drift_fraction_per_step": 0.00025,
+    "panic_liquidity_multiplier": 0.45,
+    "panic_vol_multiplier": 2.4,
+    "regime_signal_strength": 0.85,
+    "stay_probability": 0.992,
+    "trend_drift_fraction_per_step": 9e-05
+  },
+  "rule_based": {
+    "activity_boost": 0.5,
+    "breakout_lookback": 20,
+    "breakout_weight": 0.35,
+    "contrarian_weight": 0.25,
+    "long_ma": 24,
+    "ma_weight": 0.4,
+    "short_ma": 8,
+    "strict_execution": true,
+    "strict_signal_threshold": 0.1,
+    "zscore_lookback": 24,
+    "zscore_scale": 1.5
+  },
+  "seed": 42,
+  "simulator_version": "2.0.0",
+  "steps": 10000,
+  "strict_random_null": true,
+  "world_weights": {
+    "random": 1.0
+  }
+}
