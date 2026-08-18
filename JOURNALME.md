@@ -121,6 +121,733 @@ so an example of mathematically defining chart patterns, for a head and shoulder
   as a conclusion of the paper, I found that's seven out of 10 of the patterns that we tested had a different distribution to the normal unconditional Distribution. All of them gave a very light statistical edge of the market. However, it didn't analyse if this statistical edge was exploitable. I might be able to prove if it is exploitable with my own project. And as a hunch, This very light statistical edge is probably not exploitable after transaction costs, since these types of minute advantages are often illuminated after transaction costs are taken into consideration.
 
 
+  ## 10/08/2026 – 18/08/2026
+
+This week was probably the most important week of the project so far because I moved from mainly **reading about how technical-pattern research works** to actually trying to build the complete research system myself.
+
+Until now, I had a general idea of what I wanted to investigate: whether commonly recognised chart patterns such as Head and Shoulders, Double Tops, Double Bottoms, triangles, and other formations actually contain information about future prices. However, this week made me realise that there is a huge difference between having that research question and having a program that can answer it scientifically.
+
+The project is no longer simply "make some artificial prices and see whether patterns work." I am beginning to construct something much closer to an experimental framework.
+
+The general architecture of my project has now become:
+
+**Synthetic market → price and volume data → pattern detector → pattern classification → future-return measurement → statistical analysis → comparison with real financial markets.**
+
+One of the most important things I learned this week is that every one of these stages can introduce its own biases. Therefore, building a good research project is not only about writing an algorithm that works. It is about making sure that the information given to the algorithm, the assumptions used in the simulation, and the way the results are evaluated do not accidentally create the result I am looking for.
+
+---
+
+### Developing the synthetic markets
+
+At the beginning of the project, my synthetic market was extremely simple. I had essentially created a random market where buys and sells occurred with approximately equal probability and trade volumes were randomly generated.
+
+That was useful because it gave me a baseline. If my pattern detector finds extremely profitable patterns in a completely random market, that would immediately suggest that something is wrong with either my detector, my testing method, or the statistical interpretation of the results.
+
+However, I realised that a purely random market is not enough.
+
+Real financial markets contain many mechanisms which can create temporary structure in prices: trends, mean reversion, differences in liquidity, order-flow imbalance, different trader behaviours, volatility changes, market-maker inventory management, and many other effects.
+
+Therefore, I spent a significant amount of time this week improving the **market-maker simulator**.
+
+One of the biggest conceptual lessons was understanding that the market maker should not simply generate prices randomly. A market maker continuously reacts to incoming buy and sell orders while simultaneously managing its own inventory.
+
+For example, if the market maker has accumulated too much inventory because many traders have been selling to it, continuing to quote the same prices would expose the market maker to increasing risk. It therefore has an incentive to change its quotes in a way that encourages the market to buy some inventory back.
+
+This taught me something important about financial prices: even without any fundamental news, prices can move because of the mechanics of liquidity provision and inventory management.
+
+I also incorporated different types of traders into the simulator. This is important because real markets are heterogeneous. Not everyone follows the same strategy.
+
+Some traders can behave more randomly, while others can respond to price movements or other market conditions. The interaction between these participants and the market maker can generate much more interesting price behaviour than a simple random walk.
+
+This leads directly to one of the main ideas behind my project:
+
+**Chart patterns may not need to be magical shapes that somehow predict the future. They may simply be visual consequences of underlying market mechanisms.**
+
+If a certain combination of trader behaviour, order flow, liquidity, inventory pressure, or momentum repeatedly creates both a recognisable price structure and a particular future return distribution, then the chart pattern could contain genuine information.
+
+That is a much more interesting explanation for technical analysis than simply saying that "a Head and Shoulders means price goes down."
+
+---
+
+### Building different synthetic "worlds"
+
+Another major development this week was expanding the simulator so that it can generate several different types of synthetic market environments.
+
+I now think of these environments as different **worlds**.
+
+Each world represents a different set of market assumptions or behaviours.
+
+The reason this is important is that I do not want to construct one artificial market, discover that a particular chart pattern works inside it, and then conclude that the pattern is predictive.
+
+That would tell me very little.
+
+Instead, I want to ask a much more interesting question:
+
+**Under what market conditions do chart patterns become predictive?**
+
+This changes the entire purpose of the simulation.
+
+Rather than attempting to reproduce the real stock market perfectly, I can create controlled experimental environments where particular mechanisms are stronger or weaker. I can then observe whether certain chart patterns emerge and whether their predictive ability changes.
+
+This is similar to running experiments in a laboratory.
+
+One of the improvements we implemented was allowing the program to combine the different worlds instead of forcing an entire simulation to exist inside only one environment.
+
+The simulator can now combine as few as **two worlds or as many as all nine worlds**, depending on the experiment I want to perform.
+
+This is particularly useful because real markets obviously do not remain in one simple regime forever.
+
+A market might contain momentum behaviour during one period, stronger mean-reverting behaviour during another, different liquidity conditions later, and combinations of several effects at the same time.
+
+Being able to mix the synthetic worlds therefore gives me a way of gradually increasing the complexity of my experiments.
+
+I can start with very controlled situations and then progressively move toward much more complicated synthetic markets.
+
+This also taught me an important research principle:
+
+**Complexity should be introduced gradually.**
+
+If I immediately create an extremely complicated simulator and discover an interesting result, it can become almost impossible to determine which mechanism produced the result.
+
+By testing the worlds individually and then combining them, I can potentially identify which mechanisms are responsible for the predictive behaviour of particular patterns.
+
+---
+
+### Improving the chart renderer
+
+I also worked on the chart-rendering side of the project.
+
+This initially seemed much less important than the simulator or pattern detector, but I realised that visualisation is actually extremely useful for debugging quantitative research.
+
+The chart renderer allows me to visually inspect the synthetic price data that the simulator produces.
+
+This matters because a program can run perfectly without throwing an error while still producing completely unrealistic data.
+
+By looking at the generated charts I can ask questions such as:
+
+Does this actually look like a market?
+
+Is volatility sensible?
+
+Are prices jumping in unrealistic ways?
+
+Are the synthetic regimes visible?
+
+Are patterns appearing naturally or because I accidentally forced them into the simulation?
+
+The simulator and chart renderer therefore needed to be developed together.
+
+I also learned how to run these scripts and open the resulting charts through the terminal rather than depending entirely on the VS Code interface.
+
+This week made me increasingly comfortable working directly from PowerShell and using the terminal as a normal part of my development workflow.
+
+---
+
+### Turning the Lo methodology into actual code
+
+The other enormous part of this week was the pattern-detection algorithm.
+
+Reading the Lo, Mamaysky and Wang paper was one thing. Translating its mathematical methodology into Python was much more difficult.
+
+The central idea is that raw financial prices are noisy.
+
+If I simply look for every tiny local maximum and minimum in raw prices, I will detect huge numbers of meaningless extrema caused by random fluctuations.
+
+Therefore, the price series first needs to be smoothed.
+
+I learned much more deeply this week how **kernel smoothing** works.
+
+A nearby observation should generally have more influence on the estimated value than an observation far away from the point being estimated.
+
+The Gaussian kernel gives us a mathematical way of assigning those weights.
+
+The crucial parameter is the **bandwidth**.
+
+A very small bandwidth follows the observed data extremely closely. This risks interpreting noise as meaningful structure.
+
+A very large bandwidth creates an extremely smooth curve but can erase the actual structures that I am trying to detect.
+
+This is therefore a classic bias-variance problem.
+
+I also learned that the bandwidth should not simply be chosen because it "looks good."
+
+The Lo paper used cross-validation to estimate an appropriate bandwidth and then multiplied the result by 0.3 because the cross-validated solution produced too much smoothing for their particular technical-pattern application.
+
+At first I thought this meant that 0.3 was somehow the correct value.
+
+I now understand that this is not true.
+
+The optimal amount of smoothing can depend on the market, sampling frequency, volatility, window length, pattern being examined, and many other characteristics.
+
+Therefore, blindly using a constant simply because it appeared in a research paper would be bad research.
+
+The paper is a methodological starting point, not a set of universal constants.
+
+This distinction has become very important to the direction of my algorithm.
+
+---
+
+### Cross-validation and avoiding arbitrary parameters
+
+I spent a significant amount of time understanding cross-validation more precisely.
+
+The basic principle is surprisingly powerful.
+
+Instead of estimating the smoothed curve using every observation and then judging how well it fits those exact same observations, I can temporarily remove one observation, estimate what its value should have been from the remaining observations, and calculate the error.
+
+Doing this repeatedly gives an estimate of how well a particular bandwidth generalises rather than simply how well it fits the sample used to create it.
+
+The bandwidth producing the lowest cross-validation error becomes a candidate for the optimal bandwidth.
+
+This helped me understand a broader lesson which applies far beyond kernel regression:
+
+**Whenever I choose parameters using the same data on which I judge performance, I risk overfitting.**
+
+That is exactly the type of problem that can create apparently impressive trading strategies that disappear when they encounter new data.
+
+---
+
+### Local-linear smoothing and boundary bias
+
+During the implementation I also encountered an improvement over the simplest kernel-regression approach.
+
+Instead of relying only on a local-constant smoother such as the basic Nadaraya-Watson estimator, the updated detector can use a **local-linear smoother**.
+
+I learned why this matters particularly near the beginning and end of a data window.
+
+In the middle of a dataset, a point usually has observations on both sides.
+
+At the edge of a dataset, this is impossible.
+
+A simple kernel-weighted average can therefore become biased near these boundaries.
+
+Local-linear regression reduces this boundary problem because it locally estimates not only a level but also a slope.
+
+This became particularly relevant because my detector uses rolling windows. Every time the algorithm reaches the most recent observation, it is effectively operating at the boundary of the available data.
+
+That means boundary behaviour is not a minor mathematical detail. It can directly influence live pattern detection.
+
+---
+
+### Understanding numerical precision and defensive programming
+
+Another area in which I learned a surprising amount was numerical programming.
+
+For example, I encountered a constant called `_EPS`, with a very small value such as (10^{-12}).
+
+At first this seemed strange.
+
+I learned that this does not mean the program thinks the real market contains quantities of (10^{-12}). It is simply a numerical safeguard.
+
+Computers represent most decimal numbers using floating-point approximations.
+
+As a result, calculations can occasionally create tiny rounding errors, divisions by numbers extremely close to zero, or values that are mathematically supposed to be equal but are not represented identically in memory.
+
+An epsilon therefore prevents numerical instability.
+
+I also learned why apparently small implementation details matter, such as rounding a bandwidth before using it as part of a cache key.
+
+If two values differ only because of meaningless floating-point noise, treating them as completely different cached calculations wastes memory and computation.
+
+This introduced me to the more general concept of **deterministic computation**.
+
+For scientific research, it is extremely useful if the same inputs always produce exactly the same output.
+
+---
+
+### Stable hashing, caching and reproducibility
+
+I also examined code that generates stable hashes for arrays, labels, dates, and other pieces of data.
+
+Originally, code dealing with byte representations, labels, `isoformat()`, `struct.pack()`, or floating-point arrays looked unnecessarily complicated.
+
+I now understand why it exists.
+
+If the program performs expensive calculations repeatedly on identical data, caching can dramatically improve performance.
+
+However, the cache needs a reliable way of identifying when two inputs are genuinely the same.
+
+This is why arrays and labels can be converted into stable byte representations and hashed.
+
+I also learned that labels are not always simple integers.
+
+A financial dataset could use integers, strings, Python datetime objects, Pandas timestamps, or other types as its index.
+
+A robust program therefore should not assume that every label has the same representation.
+
+This was a good example of the difference between writing code that works on my current test dataset and writing code that could eventually work on many different real-world datasets.
+
+---
+
+### Data structures and Python concepts
+
+A large part of this week was also spent improving my general Python knowledge.
+
+I learned more clearly the difference between a `list` and a `Sequence`.
+
+A list is one particular Python data structure.
+
+A Sequence is a more general interface describing objects that behave like ordered sequences.
+
+Using `Sequence` in function type hints therefore makes the program more flexible because the caller could potentially provide a list, tuple, NumPy-compatible structure, or another ordered sequence.
+
+I also learned much more about:
+
+* dictionaries and mappings,
+* tuples,
+* sets,
+* dataclasses,
+* object attributes,
+* `isinstance`,
+* `hasattr`,
+* `enumerate`,
+* caching,
+* optional values,
+* type hints,
+* NumPy arrays,
+* axes in NumPy calculations,
+* and how functions communicate information through return values.
+
+These concepts originally appeared to be small Python details, but I increasingly understand that good program architecture depends heavily on them.
+
+For example, using a set of already-seen pattern identifiers can prevent duplicate pattern detections.
+
+Using a dataclass such as a `LocalExtremum` object allows each detected turning point to carry structured information such as its type, position, and value instead of passing around unrelated variables.
+
+---
+
+### Detecting extrema correctly
+
+Pattern detection fundamentally depends on identifying local maxima and minima.
+
+I originally imagined this as simply checking whether one price is higher or lower than its neighbours.
+
+However, once a smoothed curve is involved, the mathematical interpretation becomes more interesting.
+
+A local maximum occurs when the slope changes from positive to negative.
+
+A local minimum occurs when the slope changes from negative to positive.
+
+There is also the special case where the derivative becomes exactly zero for one or several observations.
+
+In this situation, I learned that the algorithm cannot immediately decide whether the point is an extremum. It needs to look for the next non-zero derivative and determine whether the direction of the slope actually changed.
+
+This made me appreciate why the apparently simple statement "find the peaks and troughs" becomes much more complicated when translated into robust code.
+
+---
+
+### Mathematically defining chart patterns
+
+Once the extrema have been found, the program still needs a mathematical definition of each chart pattern.
+
+Humans can look at a chart and say "that looks approximately like a Double Top."
+
+A computer cannot do that unless I explain precisely what "approximately" means.
+
+For example, a Double Top requires two local maxima separated by a local minimum.
+
+However, many further decisions need to be made.
+
+How far apart can the two peaks be?
+
+How similar do their heights need to be?
+
+How deep should the trough between them be?
+
+Does the second peak immediately count as a Double Top, or does price need to break the neckline before the pattern is confirmed?
+
+How much tolerance is allowed?
+
+These are not merely programming questions.
+
+They are **research definitions**.
+
+Changing them changes what the algorithm considers to be a pattern and therefore can change the research conclusion.
+
+This taught me that algorithmic technical analysis forces vague chart-reading concepts to become explicit and testable.
+
+That is one of the things I now find most interesting about the project.
+
+---
+
+### Detection versus confirmation
+
+One particularly important distinction I learned is the difference between the formation of a potential pattern and its confirmation.
+
+Suppose the algorithm sees two peaks and a trough that geometrically resemble a Double Top.
+
+At that point, a human looking retrospectively at a chart might already call it a Double Top.
+
+However, many trading definitions require the price to subsequently break below the neckline before the pattern is confirmed.
+
+The problem is that this information exists in the future relative to the second peak.
+
+If I allow my algorithm to use future prices when deciding that the pattern existed earlier, I create **look-ahead bias**.
+
+This is one of the most dangerous errors in financial backtesting.
+
+I therefore worked on making the detector explicitly record detection and confirmation timing so that the program cannot accidentally pretend it knew something before the information was actually available.
+
+This was one of the most important research lessons of the week:
+
+**Every prediction must be evaluated using only information that was available at the moment the prediction would actually have been made.**
+
+---
+
+### Rolling windows
+
+I also improved my understanding of why the detector works using rolling windows.
+
+Rather than passing an entire multi-year price series into the pattern detector and allowing the algorithm to analyse everything simultaneously, the detector examines a limited recent history.
+
+For example, a window can contain approximately the previous 35 observations with an additional buffer where appropriate.
+
+The window moves forward through time.
+
+At every point, the algorithm behaves as if that point were the present.
+
+This is important because it makes the experiment closer to a real trading environment.
+
+The program should not be looking at tomorrow while pretending to make a decision today.
+
+---
+
+### Pattern tolerances and market dependence
+
+Another thing I realised this week is that there may not be one perfect set of pattern parameters for every market.
+
+For example, deciding that two peaks must be within a particular percentage of one another might work reasonably well on one asset but poorly on another.
+
+Cryptocurrency, equities, futures and foreign-exchange markets can have very different volatility structures.
+
+Even the same market can move between low- and high-volatility regimes.
+
+Therefore, I started thinking about tolerances in more statistically meaningful ways rather than treating every fixed percentage as universal.
+
+This also connects to volatility.
+
+I learned that volatility is closely connected to the standard deviation of returns or price changes, although the exact definition depends on what quantity and time scale are being measured.
+
+That means a detector can potentially make some thresholds relative to the normal variability of the market rather than always using an arbitrary fixed number.
+
+---
+
+### Robust aggregation
+
+I also encountered the use of the median when combining several curves or estimates:
+
+`np.median(curves, axis=0)`
+
+This helped me understand why the median can sometimes be preferable to the mean.
+
+If several estimates are being combined and one is extremely unusual, the arithmetic mean can be pulled strongly toward the outlier.
+
+The median is much more resistant to this.
+
+This introduced another recurring theme in quantitative research:
+
+**Robustness matters.**
+
+I do not want a single strange price observation, seed, simulation, or parameter to determine the conclusion of the entire experiment.
+
+---
+
+### Expanding beyond an exact copy of Lo
+
+Probably the most important design decision I made this week was that I do **not** want to create an exact reproduction of the Lo pattern-detection algorithm.
+
+The Lo paper is incredibly useful because it gives me a rigorous framework for turning visual patterns into mathematical definitions.
+
+However, my objective is different.
+
+I want to build a strong modern detector that can operate both on my synthetic markets and eventually on real historical market data.
+
+Therefore, I reviewed the algorithm repeatedly and looked for weaknesses that could affect my specific research question.
+
+Instead of asking:
+
+**"Did I reproduce the paper exactly?"**
+
+I started asking:
+
+**"Is this the strongest and fairest methodology for my experiment?"**
+
+That is a much better research question.
+
+Some of the improvements involved stronger input validation, clearer separation between detection and confirmation, more robust smoothing, safer handling of unusual data, reproducibility, better metadata, deduplication of detections, and designing the detector so that new patterns can eventually be added without rewriting the entire program.
+
+---
+
+### Testing and debugging
+
+Another lesson from this week is that debugging is not just fixing syntax errors.
+
+A program can execute successfully and still be scientifically wrong.
+
+Therefore, I started examining several different layers of correctness.
+
+First there is normal software correctness:
+
+Does the code run?
+
+Are the data types correct?
+
+Are array dimensions correct?
+
+Do functions return what they are supposed to return?
+
+Then there is numerical correctness:
+
+Are calculations stable?
+
+Can division by zero occur?
+
+Can NaNs propagate through the program?
+
+Are floating-point comparisons sensible?
+
+Then there is financial correctness:
+
+Does the market simulator behave plausibly?
+
+Does the market maker respond correctly to inventory?
+
+Do trader interactions make sense?
+
+Then there is research correctness:
+
+Is there look-ahead bias?
+
+Are parameters being overfit?
+
+Am I data snooping?
+
+Am I evaluating patterns on the same data used to design them?
+
+Would transaction costs destroy an apparent advantage?
+
+This was probably the biggest development in how I think about programming.
+
+I am no longer asking only:
+
+**"Does my code work?"**
+
+I am asking:
+
+**"Does my code correctly test the hypothesis I think it is testing?"**
+
+Those are very different questions.
+
+---
+
+### Random seeds and Monte Carlo-style testing
+
+I also returned to the idea of random seeds.
+
+Using a fixed seed is extremely useful while debugging because it means that if something changes in the output, I know that the difference came from my code rather than simply from a different random simulation.
+
+However, one seed obviously cannot be used to establish whether a result is statistically reliable.
+
+Therefore, once the simulator and detector are stable, I want to run the experiment across many different seeds.
+
+This connects directly to the Monte Carlo ideas I learned from the research paper.
+
+If a pattern only performs well in seed 42 but fails across hundreds or thousands of other simulations, then the original result was probably luck.
+
+If a relationship repeatedly appears across many independent simulated markets, it becomes much more interesting.
+
+---
+
+### Synthetic markets as controlled experiments
+
+I think I now understand much better why building the synthetic market before moving to real data is so useful.
+
+With real historical data, I observe what happened, but I can never completely know the underlying process that generated every price movement.
+
+With synthetic data, I control the rules.
+
+Therefore, if I create a world containing a particular behaviour and suddenly a certain pattern becomes predictive, I have evidence connecting that underlying mechanism with the observed chart formation.
+
+I can then remove the mechanism and see whether the predictive ability disappears.
+
+I can strengthen it and see whether the effect grows.
+
+I can combine it with other worlds and see whether the signal survives.
+
+This potentially allows the project to investigate something deeper than:
+
+**"Do chart patterns work?"**
+
+The more interesting question could eventually become:
+
+**"Which market mechanisms cause particular chart patterns to contain predictive information, and under what conditions is that information strong enough to survive transaction costs?"**
+
+That feels like a much stronger research direction.
+
+---
+
+### Real markets will still be the final test
+
+Even if I discover strong relationships in my synthetic markets, I know that this will not automatically mean that the same relationships exist in reality.
+
+The synthetic markets are experiments.
+
+Real historical data will eventually be the test of external validity.
+
+The long-term goal is therefore to run the same detector on real market data without changing the rules after seeing the answer.
+
+Ideally, parameters should be determined using training or validation data and then evaluated on genuinely unseen out-of-sample data.
+
+I also want to test different types of markets rather than assuming that results from one asset apply everywhere.
+
+The research I read earlier suggested that technical-analysis opportunities may behave differently depending on market efficiency, liquidity, competition, and transaction costs.
+
+My simulator may eventually give me a way of investigating why.
+
+---
+
+### Git, GitHub and version control
+
+Alongside all of the quantitative work, I have also learned a surprising amount about Git and GitHub.
+
+At the beginning of the month, GitHub was almost completely unfamiliar to me.
+
+I initially thought of it mainly as somewhere to upload my code.
+
+I now understand that Git is really a **version-control system**.
+
+Every commit creates a record of the state of my project.
+
+That allows me to experiment while preserving the history of what I changed.
+
+I have learned commands and concepts such as:
+
+`git status`
+
+`git add`
+
+`git commit`
+
+`git pull`
+
+`git push`
+
+remote repositories,
+
+`origin`,
+
+branches,
+
+`main`,
+
+rebasing,
+
+and conflicts between local and remote histories.
+
+I encountered several real problems while doing this.
+
+For example, I had situations where my local repository and the GitHub repository had different histories.
+
+Git refused to push because GitHub contained commits that my computer did not yet contain.
+
+I learned why Git does this: it is protecting the remote repository from having work accidentally overwritten.
+
+Instead of simply forcing my version onto GitHub, the correct solution is normally to fetch or pull the remote changes, integrate them, resolve any conflicts, and then push the combined history.
+
+I also encountered a network error where Git reported:
+
+`Could not resolve host: github.com`
+
+This taught me that not every Git error is actually caused by Git. That particular problem was a DNS/network-resolution problem.
+
+Once the computer could contact GitHub again, Git returned a completely different error concerning the repository history.
+
+Learning to distinguish networking problems from Git problems is another small but useful skill I gained.
+
+I also now understand why forcing a push can be dangerous.
+
+A command can technically make the error disappear while simultaneously deleting valuable remote history.
+
+Version control is therefore another area where understanding *why* something happens is much more important than memorising commands.
+
+---
+
+### Organising the research repository
+
+I also organised the research papers I have been reading inside the project so that the code and the academic foundations of the research remain connected.
+
+This is useful because I want each major methodological decision to have a reason behind it.
+
+Rather than randomly adding techniques because they sound sophisticated, I can trace ideas back to papers, compare different methodologies, and explain why I accepted or rejected them.
+
+I think this will become particularly important when I eventually write the final research report.
+
+---
+
+### What I learned most this week
+
+Looking back, the biggest thing I learned this week is that quantitative research lies at the intersection of several completely different disciplines.
+
+I need programming because the experiments need to be implemented correctly.
+
+I need mathematics and statistics because I need to know whether the results mean anything.
+
+I need finance because the simulated market needs to have economically sensible mechanisms.
+
+I need research methodology because it is extremely easy to accidentally create biased results.
+
+And I need software-engineering practices such as testing, reproducibility, version control and documentation because the project is already becoming too large to manage casually.
+
+Something else I learned is that understanding the code is much more valuable than simply having working code.
+
+Throughout this week I repeatedly stopped on individual lines and asked why they existed.
+
+Sometimes it was something tiny, such as why a function used a tuple instead of a list, why an epsilon was (10^{-12}), why an array was converted into bytes, why `axis=0` appeared in a NumPy function, or why an object needed a particular attribute.
+
+Those questions sometimes slowed the development down considerably, but they also changed the project from code that I possessed into code that I actually understood.
+
+I think this is extremely important because eventually I need to defend the methodology.
+
+If somebody asks why I used a particular smoother, bandwidth, tolerance, window length or statistical test, "because the program generated it for me" is not an acceptable answer.
+
+I need to understand every important assumption.
+
+---
+
+### Where the project stands now
+
+At the end of this week I now have the foundations of the three major technical components of the project:
+
+1. **A substantially more sophisticated synthetic market simulator**, including a market maker, multiple trader behaviours, different synthetic market worlds, and the ability to combine several worlds together.
+
+2. **A chart-rendering system** that allows me to visually inspect and debug the artificial markets being generated.
+
+3. **A much more advanced pattern-detection framework**, inspired by the Lo methodology but being redesigned for my own experiment, with kernel smoothing, bandwidth selection, extrema detection, mathematical pattern definitions, rolling-window analysis, confirmation timing and protections against look-ahead bias.
+
+There is still a lot to do.
+
+The detector needs to be tested extensively.
+
+More pattern definitions need to be implemented and validated.
+
+The synthetic experiments need to be run across many seeds and parameter configurations.
+
+The resulting returns need to be analysed statistically.
+
+Transaction costs need to be incorporated before calling anything economically profitable.
+
+Eventually the system needs to be tested on real historical data using proper out-of-sample methodology.
+
+However, the project now feels fundamentally different from where it was one week ago.
+
+I am no longer simply trying to program a chart-pattern finder.
+
+I am beginning to build an experimental framework for studying **why**, **when**, and **under what market conditions** technical chart patterns could contain information about future prices.
+
+That distinction may ultimately become the most important idea behind the entire project.
+
+
+
 
 
     
