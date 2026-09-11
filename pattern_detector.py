@@ -35,14 +35,33 @@ import numpy as np
 _EPS = 1e-12
 _GEOMETRY_FLOOR = 1e-10  # numerical guard only; economic thresholds are dimensionless/noise-scaled
 _HASH_GEOMETRY_DECIMALS = 10
-DETECTOR_VERSION = "2.1.0"
+_ROLLING_SMOOTH_BATCH_WINDOWS = 2048
+DETECTOR_VERSION = "2.4.1"
 SMOOTHING_CALIBRATION_ID = "synthetic_geometry_v1_no_returns"
 GEOMETRY_CALIBRATION_ID = "synthetic_geometry_v3_no_returns"
+
+# One public vocabulary is shared by every downstream research layer.  Neutral families are
+# intentionally not split into synthetic "top"/"bottom" names: their direction is unknown until
+# a causal breakout has actually been observed.
+CANONICAL_PATTERN_NAMES = (
+    "head_and_shoulders",
+    "inverse_head_and_shoulders",
+    "broadening_formation",
+    "rectangle",
+    "symmetrical_triangle",
+    "double_top",
+    "double_bottom",
+)
+NEUTRAL_PATTERN_NAMES = frozenset(
+    {"broadening_formation", "rectangle", "symmetrical_triangle"}
+)
 
 __all__ = [
     "DETECTOR_VERSION",
     "SMOOTHING_CALIBRATION_ID",
     "GEOMETRY_CALIBRATION_ID",
+    "CANONICAL_PATTERN_NAMES",
+    "NEUTRAL_PATTERN_NAMES",
     "RunContext",
     "PatternDetection",
     "PatternEventCluster",
@@ -52,7 +71,38 @@ __all__ = [
     "detect_pattern_universe",
     "detect_pattern_candidates",
     "detect_patterns",
+    "causal_signal_priority",
 ]
+
+
+def causal_signal_priority(
+    pattern_name: str,
+    available_at_index: Any = 0,
+    start_index: Any = 0,
+    end_index: Any = 0,
+    observation_window_length: Any = 0,
+    core_window_length: Any = 0,
+    geometry_fit_score: Any = 0,
+) -> tuple[Any, ...]:
+    """Shared tie-break for simultaneous signals, using causal geometry and scale only.
+
+    Display/run metadata and public event IDs must never select an economically different
+    representative. Missing optional fields support older stored AI rows; new detector rows
+    supply every field. Fit scores are compared only after pattern family and coordinates.
+    """
+
+    def numeric(value: Any) -> float:
+        if value is None:
+            return 0.0
+        number = float(value)
+        return number if math.isfinite(number) else 0.0
+
+    name = str(pattern_name)
+    priority = CANONICAL_PATTERN_NAMES.index(name) if name in CANONICAL_PATTERN_NAMES else len(CANONICAL_PATTERN_NAMES)
+    return (
+        priority, name, numeric(available_at_index), numeric(start_index), numeric(end_index),
+        numeric(observation_window_length), numeric(core_window_length), -numeric(geometry_fit_score),
+    )
 
 
 @dataclass(frozen=True)
@@ -421,6 +471,55 @@ class DetectionResult:
             return 0
         return self.config_snapshot.full_multiscale_warmup_bars()
 
+    @property
+    def confirmed_breakout_events(self) -> tuple[PatternDetection, ...]:
+        """Return one earliest causally tradeable breakout for each geometry event.
+
+        ``events`` deliberately preserves each cluster's immutable first geometry detection.  A
+        breakout can become observable only in a later candidate belonging to that same cluster.
+        Backtesters must therefore use this view: it promotes the earliest confirmed member while
+        retaining the stable event id and never back-dating its information or execution time.
+        """
+
+        def is_confirmed(event: PatternDetection) -> bool:
+            return event.breakout_confirmed_by_availability and event.metadata.get(
+                "breakout_direction_by_availability"
+            ) in {"bullish", "bearish"}
+
+        if self.clusters:
+            confirmed = []
+            for cluster in self.clusters:
+                eligible = [candidate for candidate in cluster.candidates if is_confirmed(candidate)]
+                if eligible:
+                    confirmed.append(
+                        min(
+                            eligible,
+                            key=lambda event: (
+                                event.available_at_index,
+                                event.earliest_execution_index,
+                                event.start_index,
+                                event.end_index,
+                                -event.geometry_fit_score,
+                            ),
+                        )
+                    )
+        else:
+            # Compatibility for manually constructed/older DetectionResult objects.
+            confirmed = [event for event in self.events if is_confirmed(event)]
+
+        return tuple(
+            sorted(
+                confirmed,
+                key=lambda event: (
+                    event.available_at_index,
+                    event.pattern_name,
+                    event.start_index,
+                    event.end_index,
+                    event.event_id or "",
+                ),
+            )
+        )
+
 
 @dataclass(frozen=True)
 class PatternConfig:
@@ -431,10 +530,10 @@ class PatternConfig:
     observed. All geometry thresholds are dimensionless in relative-log price space.
     """
 
-    research_profile_name: str = "classical_detector_v2_1_backtest_ready"
+    research_profile_name: str = "classical_detector"
 
     # Multi-scale pattern horizons. These are frozen baseline scales, not profit-optimized values.
-    core_window_lengths: tuple[int, ...] = (35, 55, 80)
+    core_window_lengths: tuple[int, ...] = (35, 55, 80,)
     leading_context_bars: int = 3
     trailing_context_bars: int = 3
     smoothing_context_bandwidth_multiple: float = 2.0
@@ -1107,45 +1206,107 @@ def _local_linear_regression(values: Sequence[float], bandwidth: float) -> list[
     if len(values) == 1:
         return [float(values[0])]
     y = np.asarray(values, dtype=float)
-    matrix = _local_linear_smoother_matrix(len(values), max(round(float(bandwidth),8), _EPS))
+    matrix = _local_linear_smoother_matrix(
+        len(values),
+        max(round(float(bandwidth), 8), _EPS),
+    )
     return (matrix @ y).tolist()
 
 
-def _kernel_regression(values: Sequence[float], bandwidth: float) -> list[float]:
-    """Compatibility alias for the production local-linear Gaussian smoother."""
-
-    return _local_linear_regression(values, bandwidth)
 
 
-def _ensemble_local_linear_smoothing(
-    values: Sequence[float],
-    bandwidths: Sequence[float],
-) -> list[float]:
-    """Pointwise-median ensemble over a narrow, pre-registered bandwidth neighborhood."""
-
-    if len(values) == 0:
-        return []
+def _resolved_bandwidth_tuple(bandwidths: Sequence[float]) -> tuple[float, ...]:
     unique = tuple(sorted({round(float(bw), 8) for bw in bandwidths if float(bw) > 0.0}))
     if not unique:
         raise ValueError("at least one positive smoothing bandwidth is required")
-    curves = np.asarray([_local_linear_regression(values, bw) for bw in unique], dtype=float)
-    return np.median(curves, axis=0).tolist()
+    return unique
+
+
+@lru_cache(maxsize=512)
+def _ensemble_smoother_matrices(
+    length: int,
+    bandwidths: tuple[float, ...],
+) -> np.ndarray:
+    """Cached stack of local-linear smoothing matrices for one detector scale.
+
+    The returned tensor has shape ``(n_bandwidths, length, length)`` and is read-only.
+    Caching this stack avoids repeatedly assembling Python lists of curves in the millions of
+    overlapping windows encountered in large Monte Carlo research sweeps.
+    """
+
+    matrices = np.stack(
+        [_local_linear_smoother_matrix(length, bw) for bw in bandwidths],
+        axis=0,
+    )
+    matrices.flags.writeable = False
+    return matrices
+
+
+
+def _rolling_smoothed_window_batches(
+    values: np.ndarray,
+    observation_length: int,
+    bandwidths: Sequence[float],
+    *,
+    batch_windows: int = _ROLLING_SMOOTH_BATCH_WINDOWS,
+):
+    """Yield vectorized rolling windows, ensemble smooths, and residual-noise scales.
+
+    ``sliding_window_view`` keeps the raw rolling-window matrix as a view.  Smoothing is then
+    executed in bounded batches with BLAS-backed matrix multiplication.  This preserves the
+    exact causal window contract while making large detector sweeps substantially faster and
+    keeping peak memory bounded for long real-market series.
+    """
+
+    if observation_length <= 0:
+        raise ValueError("observation_length must be positive")
+    if batch_windows <= 0:
+        raise ValueError("batch_windows must be positive")
+    if observation_length > len(values):
+        return
+
+    resolved = _resolved_bandwidth_tuple(bandwidths)
+    matrices = _ensemble_smoother_matrices(observation_length, resolved)
+    windows = np.lib.stride_tricks.sliding_window_view(
+        np.asarray(values, dtype=float),
+        observation_length,
+    )
+    total = int(windows.shape[0])
+    for batch_start in range(0, total, batch_windows):
+        batch_end = min(total, batch_start + batch_windows)
+        raw = np.asarray(windows[batch_start:batch_end], dtype=float)
+        # (batch, bandwidth, position): raw @ S.T for each cached smoother matrix.
+        curves = np.stack([raw @ matrix.T for matrix in matrices], axis=1)
+        smoothed = np.median(curves, axis=1)
+        residuals = raw - smoothed
+        residual_median = np.median(residuals, axis=1, keepdims=True)
+        noise = 1.4826 * np.median(np.abs(residuals - residual_median), axis=1)
+        yield batch_start, raw, smoothed, np.maximum(noise, 0.0)
 
 
 def _stable_nonnegative_mean(values: np.ndarray) -> float:
-    """Finite mean for non-negative finite values without overflow in the accumulator."""
+    """Finite mean for finite, nonnegative values without accumulator overflow."""
 
     array = np.asarray(values, dtype=float)
+
     if array.size == 0:
         return 0.0
+    if not np.all(np.isfinite(array)):
+        raise ValueError("values must be finite")
+    if np.any(array < 0.0):
+        raise ValueError("values must be nonnegative")
+
     scale = float(np.max(array))
-    if scale <= 0.0:
+    if scale == 0.0:
         return 0.0
-    mean_scaled = float(np.mean(array / scale))
-    result = scale * mean_scaled
+
+    result = scale * float(np.mean(array / scale))
+
     if not math.isfinite(result):
-        # This should only be reachable for values outside practical market-data ranges.
-        raise ValueError("numeric aggregation overflowed despite finite input values")
+        raise ValueError(
+            "numeric aggregation overflowed despite finite input values"
+        )
+
     return result
 
 
@@ -1227,11 +1388,18 @@ def _find_local_extrema(
     smoothed: Sequence[float],
     normalized_values: Sequence[float],
     config: PatternConfig,
+    *,
+    noise_scale: float | None = None,
 ) -> list[LocalExtremum]:
     if len(smoothed) < 3:
         return []
 
-    noise_scale = _robust_residual_noise(normalized_values, smoothed)
+    if noise_scale is None:
+        noise_scale = _robust_residual_noise(normalized_values, smoothed)
+    else:
+        noise_scale = float(noise_scale)
+        if not math.isfinite(noise_scale) or noise_scale < 0.0:
+            raise ValueError("noise_scale must be finite and non-negative")
     prominence_threshold = max(
         _GEOMETRY_FLOOR,
         config.prominence_noise_scale * noise_scale,
@@ -1989,9 +2157,7 @@ def _pivot_kinds(detection: PatternDetection) -> tuple[str, ...]:
     return tuple(str(v) for v in values)
 
 
-_PHASE_INVARIANT_NEUTRAL_PATTERNS = frozenset(
-    {"rectangle", "symmetrical_triangle", "broadening_formation"}
-)
+_PHASE_INVARIANT_NEUTRAL_PATTERNS = NEUTRAL_PATTERN_NAMES
 
 
 def _pivot_match_fraction(a: PatternDetection, b: PatternDetection, tolerance: int) -> float:
@@ -2471,7 +2637,9 @@ def _cluster_candidates_causally(
     primary_events: list[PatternDetection] = []
     for available_at, time_group_iter in groupby(ordered, key=lambda d: d.available_at_index):
         time_group = list(time_group_iter)
-        new_primary_indices: list[int] = []
+        # Keep exact locations for every new view, including later members that can become
+        # the first confirmed breakout. All views need the same causal feature semantics.
+        new_assignments: list[tuple[_ClusterState, int, int, int | None]] = []
 
         for candidate in time_group:
             best_cluster: _ClusterState | None = None
@@ -2502,6 +2670,9 @@ def _cluster_candidates_causally(
                 )
                 best_cluster.members.append(assigned)
                 assigned_candidates.append(assigned)
+                new_assignments.append(
+                    (best_cluster, len(best_cluster.members) - 1, len(assigned_candidates) - 1, None)
+                )
                 continue
 
             event_id = _stable_event_id(candidate)
@@ -2516,12 +2687,14 @@ def _cluster_candidates_causally(
             clusters_by_pattern.setdefault(assigned.pattern_name, []).append(cluster)
             assigned_candidates.append(assigned)
             primary_events.append(assigned)
-            new_primary_indices.append(len(primary_events) - 1)
+            new_assignments.append(
+                (cluster, 0, len(assigned_candidates) - 1, len(primary_events) - 1)
+            )
 
         # Competition is causal. Earlier events are never retroactively modified. Events first
         # available at the same timestamp may know about each other because both are observable.
-        for index in new_primary_indices:
-            event = primary_events[index]
+        for cluster, member_index, candidate_index, primary_index in new_assignments:
+            event = assigned_candidates[candidate_index]
             competitors: list[PatternDetection] = []
             for other in primary_events:
                 if other.event_id == event.event_id or other.pattern_name == event.pattern_name:
@@ -2530,46 +2703,20 @@ def _cluster_candidates_causally(
                     continue
                 if _interval_overlap_ratio(other, event) >= config.competition_overlap_threshold:
                     competitors.append(other)
-            if competitors:
-                primary_events[index] = replace(
-                    event,
-                    metadata={
-                        **event.metadata,
-                        "competing_pattern": True,
-                        "known_competing_event_ids": sorted({p.event_id for p in competitors if p.event_id}),
-                        "known_competing_patterns": sorted({p.pattern_name for p in competitors}),
-                    },
-                )
-                # Replace the cluster primary and the corresponding first raw member so the
-                # exact same causal primary object is exposed in all public views.
-                for cluster in clusters:
-                    if cluster.event_id == event.event_id:
-                        cluster.primary = primary_events[index]
-                        cluster.members[0] = primary_events[index]
-                        break
-                for cand_index, raw in enumerate(assigned_candidates):
-                    if raw.event_id == event.event_id and raw.available_at_index == event.available_at_index and raw.start_index == event.start_index and raw.end_index == event.end_index:
-                        assigned_candidates[cand_index] = primary_events[index]
-                        break
-            else:
-                primary_events[index] = replace(
-                    event,
-                    metadata={
-                        **event.metadata,
-                        "competing_pattern": False,
-                        "known_competing_event_ids": [],
-                        "known_competing_patterns": [],
-                    },
-                )
-                for cluster in clusters:
-                    if cluster.event_id == event.event_id:
-                        cluster.primary = primary_events[index]
-                        cluster.members[0] = primary_events[index]
-                        break
-                for cand_index, raw in enumerate(assigned_candidates):
-                    if raw.event_id == event.event_id and raw.available_at_index == event.available_at_index and raw.start_index == event.start_index and raw.end_index == event.end_index:
-                        assigned_candidates[cand_index] = primary_events[index]
-                        break
+            annotated = replace(
+                event,
+                metadata={
+                    **event.metadata,
+                    "competing_pattern": bool(competitors),
+                    "known_competing_event_ids": sorted({p.event_id for p in competitors if p.event_id}),
+                    "known_competing_patterns": sorted({p.pattern_name for p in competitors}),
+                },
+            )
+            cluster.members[member_index] = annotated
+            assigned_candidates[candidate_index] = annotated
+            if primary_index is not None:
+                primary_events[primary_index] = annotated
+                cluster.primary = annotated
 
     research_clusters: list[PatternEventCluster] = []
     for cluster in clusters:
@@ -2683,6 +2830,17 @@ def detect_pattern_universe(
         detect_double_top,
         detect_double_bottom,
     )
+    double_detectors = {detect_double_top, detect_double_bottom}
+    # ``detector_required_extrema`` is a configuration contract, not a window-dependent value.
+    # Resolve it once so large sweeps do not repeatedly normalize detector names millions of times.
+    detector_specs = tuple(
+        (
+            detector,
+            config.detector_required_extrema(detector.__name__),
+            detector in double_detectors,
+        )
+        for detector in detector_sequence
+    )
 
     for core_window_length in config.resolved_core_window_lengths():
         actual_bandwidths = config.smoothing_bandwidths(core_window_length)
@@ -2692,49 +2850,59 @@ def detect_pattern_universe(
         if observation_length > len(normalized_global):
             continue
 
-        for window_start in range(0, len(normalized_global) - observation_length + 1):
-            window = normalized_global[window_start : window_start + observation_length].tolist()
-            smoothed = _ensemble_local_linear_smoothing(window, actual_bandwidths)
-            observation_noise_scale = _robust_residual_noise(window, smoothed)
-            extrema = _find_local_extrema(smoothed, window, config)
+        for batch_start, raw_windows, smoothed_windows, noise_scales in _rolling_smoothed_window_batches(
+            normalized_global,
+            observation_length,
+            actual_bandwidths,
+        ):
+            for row_index in range(raw_windows.shape[0]):
+                window_start = batch_start + row_index
+                window = raw_windows[row_index]
+                smoothed = smoothed_windows[row_index]
+                observation_noise_scale = float(noise_scales[row_index])
+                extrema = _find_local_extrema(
+                    smoothed,
+                    window,
+                    config,
+                    noise_scale=observation_noise_scale,
+                )
 
-            for detector in detector_sequence:
-                required = config.detector_required_extrema(detector.__name__)
-                if len(extrema) < required:
-                    continue
-                if detector in (detect_double_top, detect_double_bottom):
-                    local_candidates = detector(
-                        extrema,
-                        config,
-                        prices=window,
-                        reference_window_size=core_window_length,
-                    )
-                else:
-                    local_candidates = detector(extrema, config)
+                for detector, required, is_double in detector_specs:
+                    if len(extrema) < required:
+                        continue
+                    if is_double:
+                        local_candidates = detector(
+                            extrema,
+                            config,
+                            prices=window,
+                            reference_window_size=core_window_length,
+                        )
+                    else:
+                        local_candidates = detector(extrema, config)
 
-                for candidate in local_candidates:
-                    abs_available = window_start + observation_length - 1
-                    public = _public_candidate(
-                        candidate=candidate,
-                        market=market,
-                        normalized_global=normalized_global,
-                        window=window,
-                        window_start=window_start,
-                        core_window_length=core_window_length,
-                        observation_length=observation_length,
-                        leading_context=leading_context,
-                        trailing_context=trailing_context,
-                        bandwidth=actual_bandwidths,
-                        observation_noise_scale=observation_noise_scale,
-                        config=config,
-                        config_hash=config_hash,
-                        causal_prefix_fingerprint=prefix_fingerprints[abs_available],
-                        causal_market_data_prefix_fingerprint=market_prefix_fingerprints[abs_available],
-                        run_context_hash=context_hash,
-                        run_context=run_context,
-                    )
-                    if public is not None:
-                        raw_candidates.append(public)
+                    for candidate in local_candidates:
+                        abs_available = window_start + observation_length - 1
+                        public = _public_candidate(
+                            candidate=candidate,
+                            market=market,
+                            normalized_global=normalized_global,
+                            window=window,
+                            window_start=window_start,
+                            core_window_length=core_window_length,
+                            observation_length=observation_length,
+                            leading_context=leading_context,
+                            trailing_context=trailing_context,
+                            bandwidth=actual_bandwidths,
+                            observation_noise_scale=observation_noise_scale,
+                            config=config,
+                            config_hash=config_hash,
+                            causal_prefix_fingerprint=prefix_fingerprints[abs_available],
+                            causal_market_data_prefix_fingerprint=market_prefix_fingerprints[abs_available],
+                            run_context_hash=context_hash,
+                            run_context=run_context,
+                        )
+                        if public is not None:
+                            raw_candidates.append(public)
 
     assigned, events, clusters = _cluster_candidates_causally(raw_candidates, config)
     return DetectionResult(
