@@ -1,0 +1,12 @@
+# Runtime and statistical backtesting dependencies
+numpy>=2.0,<3
+scipy>=1.13,<2
+threadpoolctl>=3.5,<4
+
+# AI research pipeline
+joblib>=1.4,<2
+pandas>=2.2,<4
+scikit-learn>=1.5,<2
+xgboost>=3.0,<4
+torch>=2.4,<3
+shap>=0.46,<1
